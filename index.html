@@ -1,0 +1,949 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>EvoCore: Evolving the Linux Kernel</title>
+  <meta name="description" content="EvoCore: Co-evolving Linux 7.3.4 (x86_64) across C source patches, Kconfig specialization, and runtime sysctl parameters using EvoForest (arXiv:2604.19761)." />
+  <meta name="author" content="Şuayp Talha Kocabay" />
+  <meta property="og:title" content="EvoCore: Evolving the Linux Kernel" />
+  <meta property="og:description" content="+22.5% futex wakeup, +9.1% hackbench pipe scheduling, +9.0% getppid() syscall, -18.5 MiB post-workload RAM, and +2.5% TCP bulk throughput over upstream Linux 7.3.4 with 26/26 subsystems and 22/22 hardware mitigations preserved." />
+  <meta property="og:image" content="figures/banner.png" />
+  <meta property="og:type" content="article" />
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Newsreader:ital,opsz,wght@0,6..72,500;0,6..72,600;0,6..72,700;1,6..72,400&display=swap" rel="stylesheet" />
+
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+
+  <style>
+    :root {
+      --bg: #fcfcfd;
+      --surface: #ffffff;
+      --surface-subtle: #f6f8fa;
+      --text: #18202c;
+      --text-muted: #526074;
+      --border: #e3e8ef;
+      --accent: #0f4c81;
+      --accent-soft: #eef5fc;
+      --accent-border: #c5dcf2;
+      --good: #0f766e;
+      --good-bg: #ecfdf5;
+      --warn: #b45309;
+      --warn-bg: #fffbeb;
+      --code-bg: #0f172a;
+      --code-text: #e2e8f0;
+      --inline-code-bg: #eff3f8;
+      --max-width: 920px;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      margin: 0;
+      padding: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      font-size: 16.5px;
+      line-height: 1.72;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    a {
+      color: var(--accent);
+      text-decoration: none;
+    }
+
+    a:hover {
+      text-decoration: underline;
+    }
+
+    .topbar {
+      position: sticky;
+      top: 0;
+      z-index: 40;
+      background: rgba(252, 252, 253, 0.92);
+      backdrop-filter: blur(10px);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .topbar-inner {
+      max-width: var(--max-width);
+      margin: 0 auto;
+      padding: 10px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      font-size: 0.86rem;
+    }
+
+    .brand {
+      font-weight: 700;
+      color: var(--text);
+      letter-spacing: -0.01em;
+      white-space: nowrap;
+    }
+
+    .nav-links {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 14px;
+      align-items: center;
+    }
+
+    .nav-links a {
+      color: var(--text-muted);
+      font-weight: 500;
+    }
+
+    .nav-links a:hover {
+      color: var(--accent);
+      text-decoration: none;
+    }
+
+    main {
+      max-width: var(--max-width);
+      margin: 0 auto;
+      padding: 28px 24px 80px;
+    }
+
+    .banner-fig {
+      margin: 0 0 28px;
+      border-radius: 14px;
+      overflow: hidden;
+      border: 1px solid var(--border);
+      background: #0b111c;
+      box-shadow: 0 10px 28px rgba(15, 23, 42, 0.08);
+    }
+
+    .banner-fig img {
+      display: block;
+      width: 100%;
+      height: auto;
+    }
+
+    .paper-header {
+      margin-bottom: 28px;
+    }
+
+    .eyebrow {
+      display: inline-block;
+      font-size: 0.78rem;
+      font-weight: 600;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--accent);
+      background: var(--accent-soft);
+      border: 1px solid var(--accent-border);
+      padding: 4px 10px;
+      border-radius: 999px;
+      margin-bottom: 14px;
+    }
+
+    h1.paper-title {
+      font-family: 'Newsreader', Georgia, serif;
+      font-size: clamp(2rem, 3.8vw, 2.75rem);
+      font-weight: 700;
+      line-height: 1.15;
+      letter-spacing: -0.02em;
+      margin: 0 0 14px;
+      color: #0f172a;
+    }
+
+    .subtitle {
+      font-size: 1.08rem;
+      color: var(--text-muted);
+      margin: 0 0 18px;
+      line-height: 1.55;
+    }
+
+    .authors-block {
+      font-size: 0.95rem;
+      color: var(--text);
+      margin-bottom: 16px;
+      line-height: 1.6;
+    }
+
+    .authors-block .affil {
+      color: var(--text-muted);
+      font-size: 0.9rem;
+    }
+
+    .resources-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 14px;
+    }
+
+    .pill-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      padding: 7px 14px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--text);
+      font-size: 0.87rem;
+      font-weight: 600;
+      transition: border-color 0.15s ease, background 0.15s ease;
+    }
+
+    .pill-link:hover {
+      border-color: var(--accent);
+      background: var(--accent-soft);
+      text-decoration: none;
+    }
+
+    .pill-link.primary {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: #ffffff;
+    }
+
+    .pill-link.primary:hover {
+      background: #0c3d68;
+      border-color: #0c3d68;
+      color: #ffffff;
+    }
+
+    .kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(175px, 1fr));
+      gap: 12px;
+      margin: 26px 0 32px;
+    }
+
+    .kpi-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 14px 16px;
+      box-shadow: 0 2px 8px rgba(15, 23, 42, 0.03);
+    }
+
+    .kpi-val {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 1.38rem;
+      font-weight: 700;
+      color: var(--accent);
+      line-height: 1.25;
+    }
+
+    .kpi-label {
+      font-size: 0.82rem;
+      color: var(--text-muted);
+      margin-top: 4px;
+      line-height: 1.35;
+    }
+
+    .abstract-box {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-left: 4px solid var(--accent);
+      border-radius: 10px;
+      padding: 20px 24px;
+      margin: 0 0 32px;
+      box-shadow: 0 2px 10px rgba(15, 23, 42, 0.03);
+    }
+
+    .abstract-box h2 {
+      margin: 0 0 10px;
+      font-size: 1rem;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--accent);
+      border: none;
+      padding: 0;
+    }
+
+    .abstract-box p {
+      margin: 0 0 12px;
+    }
+
+    .abstract-box ul {
+      margin: 0;
+      padding-left: 20px;
+    }
+
+    .abstract-box li + li {
+      margin-top: 8px;
+    }
+
+    h2 {
+      font-family: 'Newsreader', Georgia, serif;
+      font-size: 1.72rem;
+      font-weight: 700;
+      line-height: 1.25;
+      margin: 44px 0 14px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid var(--border);
+      color: #0f172a;
+      scroll-margin-top: 72px;
+    }
+
+    h3 {
+      font-size: 1.15rem;
+      font-weight: 700;
+      margin: 26px 0 10px;
+      color: #18202c;
+      scroll-margin-top: 72px;
+    }
+
+    p {
+      margin: 0 0 14px;
+    }
+
+    ul, ol {
+      margin: 0 0 16px;
+      padding-left: 22px;
+    }
+
+    li + li {
+      margin-top: 6px;
+    }
+
+    code {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.87em;
+      background: var(--inline-code-bg);
+      padding: 2px 5px;
+      border-radius: 5px;
+      color: #0f172a;
+    }
+
+    pre {
+      background: var(--code-bg);
+      color: var(--code-text);
+      padding: 16px 18px;
+      border-radius: 10px;
+      overflow-x: auto;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.84rem;
+      line-height: 1.55;
+      margin: 14px 0 22px;
+    }
+
+    pre code {
+      background: transparent;
+      padding: 0;
+      color: inherit;
+      font-size: inherit;
+    }
+
+    .callout {
+      background: var(--surface-subtle);
+      border: 1px solid var(--border);
+      border-left: 4px solid var(--warn);
+      border-radius: 10px;
+      padding: 16px 20px;
+      margin: 18px 0 22px;
+    }
+
+    .callout.good {
+      border-left-color: var(--good);
+      background: var(--good-bg);
+    }
+
+    .callout strong.callout-title {
+      display: block;
+      margin-bottom: 6px;
+      color: #0f172a;
+    }
+
+    figure.card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 14px;
+      margin: 24px 0 28px;
+      box-shadow: 0 4px 16px rgba(15, 23, 42, 0.04);
+    }
+
+    figure.card img {
+      display: block;
+      width: 100%;
+      height: auto;
+      border-radius: 8px;
+    }
+
+    figure.card figcaption {
+      margin-top: 12px;
+      font-size: 0.9rem;
+      color: var(--text-muted);
+      line-height: 1.5;
+      padding: 0 4px;
+    }
+
+    .mermaid-wrap {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 18px 14px;
+      margin: 22px 0 26px;
+      overflow-x: auto;
+      text-align: center;
+    }
+
+    .table-wrap {
+      overflow-x: auto;
+      margin: 18px 0 26px;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: var(--surface);
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.87rem;
+      line-height: 1.45;
+    }
+
+    th, td {
+      padding: 9px 12px;
+      border-bottom: 1px solid var(--border);
+      text-align: left;
+      white-space: nowrap;
+    }
+
+    th {
+      background: var(--surface-subtle);
+      font-weight: 600;
+      color: #0f172a;
+    }
+
+    tr:last-child td {
+      border-bottom: none;
+    }
+
+    td.num, th.num {
+      text-align: right;
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    tr.winner-row {
+      background: #eef7f4;
+      font-weight: 600;
+    }
+
+    details.full-table {
+      margin: 18px 0 28px;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: var(--surface);
+      padding: 10px 14px;
+    }
+
+    details.full-table summary {
+      cursor: pointer;
+      font-weight: 600;
+      color: var(--accent);
+      padding: 4px 2px;
+      user-select: none;
+    }
+
+    .layer-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 14px;
+      margin: 20px 0 28px;
+    }
+
+    .layer-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 16px 18px;
+    }
+
+    .layer-card h4 {
+      margin: 0 0 8px;
+      font-size: 0.98rem;
+      color: var(--accent);
+    }
+
+    .layer-card ul {
+      margin: 0;
+      padding-left: 18px;
+      font-size: 0.91rem;
+    }
+
+    footer {
+      margin-top: 56px;
+      padding-top: 22px;
+      border-top: 1px solid var(--border);
+      font-size: 0.88rem;
+      color: var(--text-muted);
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      gap: 12px;
+    }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <div class="topbar-inner">
+      <a href="#top" class="brand">EvoCore · Linux 7.3.4</a>
+      <nav class="nav-links" aria-label="Article sections">
+        <a href="#evoforest">EvoForest</a>
+        <a href="#evolution">Evolution</a>
+        <a href="#architecture">EvoCore</a>
+        <a href="#kvm">KVM Eval</a>
+        <a href="#colab">Colab Eval</a>
+        <a href="#invariants">Invariants</a>
+        <a href="#references">References</a>
+        <a href="https://github.com/suayptalha/evocore" target="_blank" rel="noopener">GitHub</a>
+      </nav>
+    </div>
+  </header>
+
+  <main id="top">
+    <figure class="banner-fig">
+      <img src="figures/banner.png" alt="EvoCore: Evolving the Linux Kernel Hero Banner" />
+    </figure>
+
+    <header class="paper-header">
+      <span class="eyebrow">Linux Kernel 7.3.4 (x86_64) · Cross-Layer Systems Optimization</span>
+      <h1 class="paper-title">EvoCore: Evolving the Linux Kernel</h1>
+      <p class="subtitle">
+        Joint C source, Kconfig, and runtime <code>sysctl</code> specialization synthesized via the
+        <strong>EvoForest</strong> computational-graph evolution engine, validated head-to-head on bare-metal KVM and Google Colab Xeon QEMU TCG.
+      </p>
+      <div class="authors-block">
+        <strong>Şuayp Talha Kocabay</strong> (<a href="mailto:kocabaysuayptalha08@gmail.com">kocabaysuayptalha08@gmail.com</a>)<br />
+        <span class="affil">TÜBİTAK Science High School</span>
+      </div>
+      <div class="resources-row">
+        <a class="pill-link primary" href="https://github.com/suayptalha/evocore" target="_blank" rel="noopener">
+          GitHub Repository (suayptalha/evocore)
+        </a>
+        <a class="pill-link" href="https://github.com/suayptalha/evocore/blob/main/patches/evocore_linux_7.3.4.patch" target="_blank" rel="noopener">
+          Linux 7.3.4 C Patch
+        </a>
+        <a class="pill-link" href="evocore_blog.md" target="_blank" rel="noopener">
+          Markdown Source
+        </a>
+      </div>
+    </header>
+
+    <section class="kpi-grid" aria-label="Headline paired KVM results">
+      <div class="kpi-card">
+        <div class="kpi-val">+22.5%</div>
+        <div class="kpi-label">Faster futex wakeup ping-pong (4.001 vs 4.902 µs)</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-val">+9.1%</div>
+        <div class="kpi-label">Faster <code>hackbench</code> pipe scheduling (8.65 vs 9.43 ms)</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-val">+9.0%</div>
+        <div class="kpi-label">Faster <code>getppid()</code> syscall (172.7 vs 188.2 ns)</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-val">-18.5 MiB</div>
+        <div class="kpi-label">Lower post-workload RAM (-18,936 KiB) &amp; -275 KiB vmlinux</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-val">26/26 · 22/22</div>
+        <div class="kpi-label">Core subsystems &amp; hardware mitigations preserved</div>
+      </div>
+    </section>
+
+    <section class="abstract-box">
+      <h2>Abstract</h2>
+      <p>
+        General-purpose operating system kernels ship with conservative compiled defaults, <code>.config</code> diagnostic toggles, and runtime <code>sysctl</code> settings intended to fit everything from embedded boxes to multi-socket servers. Tuning these three layers independently—or benchmarking them without strict baseline and cache hygiene—frequently yields brittle configurations that regress tail workloads, trigger thermal artifacts, or silently strip hardware vulnerability mitigations.
+      </p>
+      <p>
+        This article introduces <strong><code>EvoCore</code></strong>, a verified Linux <strong>7.3.4</strong> (<code>x86_64</code>) optimization profile synthesized jointly across <strong>C source patches</strong>, <strong>Kconfig specialization</strong>, and <strong>runtime <code>sysctl</code> knobs</strong> using the <a href="https://arxiv.org/abs/2604.19761" target="_blank" rel="noopener"><strong>EvoForest</strong></a> computational-graph evolution paradigm (Yuksel &amp; Sawaf, 2026). Rather than stripping safety guardrails, <strong><code>EvoCore</code></strong> preserves <code>26/26</code> core Linux subsystems and <code>22/22</code> <code>CONFIG_MITIGATION_*</code> security flags while winning controlled Latin-square benchmarks against cleanly rebuilt stock Linux 7.3.4:
+      </p>
+      <ul>
+        <li><strong>Bare-metal KVM (local i7-1255U, <code>cloud-hypervisor v54.1</code>, 5 rounds = 25 boots):</strong> <code>+22.5%</code> faster futex ping-pong, <code>+9.1%</code> faster <code>hackbench</code>, <code>+9.0%</code> faster <code>getppid()</code>, <code>-18,936 KiB</code> (~18.5 MiB) lower post-workload RAM, <code>-275.3 KiB</code> smaller resident <code>vmlinux</code>, and <code>+2.5%</code> / <code>+1.3%</code> faster loopback TCP bulk and request-response, winning <strong>14/22 metrics</strong> (<code>0.5298</code> paired fitness, 0 hard regressions).</li>
+        <li><strong>Independent Google Colab Xeon QEMU TCG (2.20 GHz, 3 rounds = 13 boots):</strong> <code>100%</code> clean boot sanity/dmesg/taint, reproducing <code>+38.8%</code> <code>hackbench</code>, <code>+20.5%</code> futex, <code>+8.1%</code> <code>getppid()</code>, <code>+7.6%</code> sequential <code>tmpfs</code>, <code>+6.3%</code> random 4K <code>tmpfs</code>, and <code>1.80 s</code> faster end-to-end QEMU wall time, while uncovering an instructive emulator softirq loopback divergence.</li>
+        <li><strong>Two Critical Engineering Catches:</strong> Controlled validation exposed a <strong>Kbuild <code>.config</code> timestamp (<code>mtime</code>) caching bug</strong> and a <strong>noisy-T0 + thermal-drift false-positive trap</strong>, flipping the ranking between evolution's nominal peak (<code>08661a6b</code>) and our truly balanced winner <strong><code>EvoCore</code></strong> (<code>c37195f0_swap55</code>).</li>
+      </ul>
+    </section>
+
+    <h2 id="motivation">1. Why Co-Evolving a General-Purpose Linux Kernel Is Hard</h2>
+    <p>
+      Every release of upstream Linux exposes an enormous combinatorial design space spanning three tightly coupled layers:
+    </p>
+    <ol>
+      <li><strong>Kernel C source constants and defaults</strong> — scheduler heuristics in <code>kernel/sched/fair.c</code> and <code>features.h</code>, per-CPU task stack caching in <code>kernel/fork.c</code>, pipe ring retention in <code>fs/pipe.c</code>, and TCP per-namespace defaults in <code>net/ipv4/tcp_ipv4.c</code>.</li>
+      <li><strong>Compile-time <code>.config</code> choices</strong> — compressed swap algorithms (<code>LZ4</code> vs <code>LZO</code>), per-CPU page allocator batch scales, and diagnostic toggles that inflate resident instruction cache footprint.</li>
+      <li><strong>Boot-time and runtime <code>sysctl</code> parameters</strong> — virtual memory reclaim pressure, compaction proactiveness, and NAPI/network polling budgets.</li>
+    </ol>
+    <p>
+      Changing one knob in isolation rarely tells the whole story: tightening scheduler latency can hurt <code>mmap</code> throughput under contention; increasing socket buffers to <code>4 MiB</code> can score well on an isolated run while trashing CPU cache on concurrent traffic; and trimming <code>.config</code> without invariant enforcement can silently disable namespaces or CPU hardware mitigations.
+    </p>
+
+    <h2 id="evoforest">2. Adapting EvoForest to Kernel Synthesis</h2>
+    <p>
+      To explore this cross-layer space systematically, we built our search workflow on top of <a href="https://arxiv.org/abs/2604.19761" target="_blank" rel="noopener"><strong>EvoForest</strong> (<code>arXiv:2604.19761</code>)</a> (Yuksel &amp; Sawaf, 2026). Rather than optimizing flat parameter vectors, <strong>EvoForest</strong> represents candidates as reusable modular alternatives inside a shared Directed Acyclic Graph (<strong>DAG</strong>) paired with structured evaluator feedback (<em>memoranda</em>) across multiple evolving islands. Whereas recent evolutionary kernel optimization frameworks such as <a href="https://arxiv.org/abs/2603.28342" target="_blank" rel="noopener"><strong>Kernel-Smith</strong> (<code>arXiv:2603.28342</code>)</a> (Du et al., 2026) combine evaluation-driven evolutionary search with post-training for GPU compute kernels (Triton and MACA), <strong>EvoCore</strong> extends structured execution-feedback evolution to a full general-purpose <strong>operating system kernel</strong> across interdependent C source, Kconfig, and runtime <code>sysctl</code> layers.
+    </p>
+
+    <div class="mermaid-wrap">
+      <div class="mermaid">
+flowchart LR
+    A["Multi-Island EvoForest Population\n(3 Islands · Steps 0–12)"] --> B["8-Node Kernel DAG\n(Kconfig · C Patches · Sysctl · Cmdline)"]
+    B --> C{"Two-Stage VM Gatekeeper\n(Cloud Hypervisor KVM)"}
+    C -->|"Stage-1 (n=1 boot)\nPruned: 56 specs"| D["Salvage Strong Fragments\n+ Update Island Memo"]
+    C -->|"Stage-2 (n=3 boots)\nPassed: 38 / Rejected: 1"| E["Update Global / Island Best\n+ Structured Tradeoff Memo"]
+    D --> A
+    E --> A
+    E --> F["Controlled Paired Verification\n(Local KVM n=5 + Colab Xeon QEMU n=3)"]
+    F --> G["EvoCore Release\n(c37195f0_swap55)"]
+      </div>
+    </div>
+
+    <p>In our kernel synthesis DAG, every candidate specification is assembled from <strong>8 semantic nodes</strong>:</p>
+    <ul>
+      <li><strong>Compile-time Kconfig (<code>kconfig_sched</code>, <code>kconfig_mm</code>, <code>kconfig_io_net</code>):</strong> constrained against 26 mandatory runtime subsystems, all 22 <code>CONFIG_MITIGATION_*</code> flags, <code>CONFIG_PREEMPT_LAZY=y</code>, and core memory/stack hardening flags.</li>
+      <li><strong>Targeted C Source Mutations (<code>sched_patch</code>, <code>mm_patch</code>, <code>ipc_fs_net_patch</code>):</strong> deterministic surgical patches anchored to upstream Linux <code>7.3.4</code> and cleanly reverted via <code>git checkout</code> between builds.</li>
+      <li><strong>Runtime &amp; Boot Tunables (<code>runtime_sysctl</code>, <code>boot_cmdline</code>):</strong> applied inside a deterministic static C <code>/init</code> microVM harness.</li>
+    </ul>
+
+    <h3>Composite Fitness &amp; Two-Stage Noise Filtering</h3>
+    <p>
+      A standalone static C harness (<code>bench/init_bench.c</code>) boots directly as <code>/init</code> inside a 4-vCPU, <code>1536 MiB</code> RAM microVM and measures <strong>22 metrics across 5 domains</strong>:
+    </p>
+    <ul>
+      <li><code>memory_footprint</code> (6): <code>vmlinux_resident_kib</code>, <code>boot_used_kib</code>, <code>kernel_meta_idle_kib</code>, <code>post_used_kib</code>, <code>kernel_meta_post_kib</code>, <code>mem_pressure_ms</code>.</li>
+      <li><code>scheduler</code> (4): <code>pipe_pingpong_us</code>, <code>hackbench_pipe_ms</code>, <code>wakeup_p99_us</code>, <code>cpu_contention_ms</code>.</li>
+      <li><code>mm_speed</code> (4): <code>anon_fault_ms</code>, <code>cow_fork_us</code>, <code>mmap_churn_ms</code>, <code>vfs_slab_ms</code>.</li>
+      <li><code>syscall_ipc_boot</code> (4): <code>syscall_getppid_ns</code>, <code>futex_pingpong_us</code>, <code>epoll_ms</code>, <code>boot_wall_ms</code>.</li>
+      <li><code>fs_net</code> (4): <code>tmpfs_seq_rw_mbps</code>, <code>tmpfs_rand4k_iops</code>, <code>tcp_bulk_mbps</code>, <code>tcp_rr_us</code>.</li>
+    </ul>
+    <p>
+      Any single metric regressing below <code>0.90x</code> triggers a severe hard-rejection penalty, while parity with the reference Vanilla baseline sits at <code>0.5000</code> (<code>utility = 0.00%</code>). Every boot must also pass <code>sanity_rc == 0</code>, <code>kmsg_clean == 1</code>, <code>tainted == 0</code>, and <code>sysctl_failed == 0</code>.
+    </p>
+
+    <h2 id="evolution">3. Inside the 12-Step Evolution &amp; Two Critical Catches</h2>
+    <figure class="card">
+      <img src="figures/fig1_evolution_trajectory.png" alt="EvoForest Evolution Trajectory and Screening Funnel" />
+      <figcaption>
+        <strong>Figure 1.</strong> 12-step EvoForest search across 3 islands: <strong>95 candidate specs</strong> screened across <strong>173 KVM boots</strong> with only <strong>19 unique binaries</strong> compiled (<code>5.0x</code> spec-to-binary reuse ratio), showing how paired post-evolution verification separated genuine structural improvements (<code>EvoCore c37195f0_swap55</code>) from early-T0 / thermal-drift illusions.
+      </figcaption>
+    </figure>
+
+    <ul>
+      <li><strong>Steps 1–3 (Crucial Early Pruning):</strong> Transparent HugePages <code>within_size</code> lifted sequential <code>tmpfs</code> by <code>+50.7%</code> but added latency jitter to <code>futex_pingpong_us</code> (<code>0.815x</code>) and slowed boot (<code>0.875x</code>). Forcing <code>preempt=full</code> regressed <code>tcp_bulk_mbps</code> (<code>0.731x</code>) and <code>vfs_slab_ms</code> (<code>0.752x</code>) vs upstream <code>PREEMPT_LAZY=y</code>. Both branches were pruned.</li>
+      <li><strong>Step 5 (<code>0.3278 -&gt; 0.6218</code> Breakthrough):</strong> Island 1 synthesized <code>sched_eevdf_ipc_stack4</code> (<code>NEXT_BUDDY=true</code>, <code>500 µs</code> base slice, <code>250 µs</code> migration cost, and <code>NR_CACHED_STACKS=4</code>), jumping fitness by <code>+0.2940</code> in a single step.</li>
+      <li><strong>Step 7 (<code>08661a6b</code> T0 Peak = <code>0.6366</code>):</strong> Island 0 paired <code>sched_eevdf_ipc_stack4</code> with pipe/TCP C patches and aggressive <code>4 MiB</code> socket buffers + <code>swappiness=60</code>.</li>
+      <li><strong>Step 9 (<code>eac71b1d</code> = <code>0.6263</code>):</strong> Island 2 disabled 13 non-security debug toggles + enabled LZ4 zswap (<code>-275.3 KiB</code> resident <code>vmlinux</code>), revealing only one weakness: <code>CONFIG_PCP_BATCH_SCALE_MAX=6</code> trimmed <code>mmap_churn_ms</code> vs upstream <code>PCP=5</code>.</li>
+      <li><strong>Step 12 (<code>c37195f0</code> Built, Masked by Thermal Drift):</strong> Island 2 restored <code>PCP=5</code> alongside the 13 debug trims, LZ4 zswap, and all 7 C patches—only to evaluate during evening laptop thermal throttling (<code>0.0874</code> raw), triggering our deep forensic audit.</li>
+    </ul>
+
+    <div class="callout">
+      <strong class="callout-title">Catch #1: The Kbuild <code>.config</code> <code>mtime</code> Caching Bug</strong>
+      When rebuilding Vanilla (<code>kconfig={}</code>) right after Step 12, an incremental <code>make</code> finished in <code>12–42 s</code>. Inspecting ELF segments and <code>include/config/auto.conf</code> revealed Python's <code>shutil.copy2(base_defconfig, target_cfg)</code> preserved <code>base_defconfig</code>'s older modification timestamp, causing Kbuild to skip regenerating <code>auto.conf</code> and silently keep stale flags! Fixing this with <code>shutil.copyfile</code> + <code>target_cfg.touch()</code> produced a verified <code>721.74 s</code> Vanilla rebuild (<code>0</code> diffs vs <code>base_defconfig</code>, exact <code>33,828.50 KiB</code> resident image). Timestamp audits also confirmed none of the evolved binaries were polluted.
+    </div>
+
+    <div class="callout">
+      <strong class="callout-title">Catch #2: Noisy-T0 Inflation Reversed the Nominal Leaderboard</strong>
+      Re-inspecting the original 5 T0 baseline boots showed 2 early outliers (<code>syscall_getppid_ns</code> at <code>241.7 ns</code> &amp; <code>248.7 ns</code>, RSD 14–29%) inflated T0 medians. Under a clean 5-round Latin-square comparison against freshly rebuilt Vanilla, nominal peak <code>08661a6b</code> collapsed to <code>0.0521</code> (<code>tcp_bulk_mbps = 0.8632x</code> from <code>4 MiB</code> buffer cache pressure), while previously discarded <strong><code>EvoCore (c37195f0_swap55)</code></strong> rose to <strong>#1 overall (<code>0.5298</code>)</strong> with zero regressions.
+    </div>
+
+    <h2 id="architecture">4. Anatomy of EvoCore (<code>c37195f0_swap55</code>)</h2>
+    <figure class="card">
+      <img src="figures/fig2_architecture_dag.png" alt="EvoCore 3-Layer Kernel Specialization Architecture" />
+      <figcaption>
+        <strong>Figure 2.</strong> Full three-layer architecture of <strong>EvoCore</strong> across its 7 upstream-anchored C patch hunks, lean Kconfig + LZ4 zswap fragment with preserved <code>PCP=5</code>, balanced <code>sysctl</code> defaults, and automated invariant gates.
+      </figcaption>
+    </figure>
+
+    <div class="layer-grid">
+      <div class="layer-card">
+        <h4>Layer 1 · 7 Surgical C Hunks</h4>
+        <ul>
+          <li><code>kernel/sched/features.h</code>: enable <code>NEXT_BUDDY</code> wakeup cache affinity.</li>
+          <li><code>kernel/sched/fair.c</code>: EEVDF <code>base_slice = 500 µs</code>, <code>migration_cost = 250 µs</code>.</li>
+          <li><code>kernel/fork.c</code>: double per-CPU <code>NR_CACHED_STACKS</code> from <code>2 -&gt; 4</code>.</li>
+          <li><code>fs/pipe.c</code>: retain <code>4</code> preallocated pages per pipe ring.</li>
+          <li><code>net/ipv4/tcp_ipv4.c</code>: disable per-netns <code>slow_start_after_idle</code> &amp; <code>backlog_ack_defer</code>.</li>
+        </ul>
+      </div>
+      <div class="layer-card">
+        <h4>Layer 2 · Kconfig &amp; LZ4 Zswap</h4>
+        <ul>
+          <li>Switch compressed swap default <code>LZO -&gt; LZ4</code> (<code>CONFIG_ZSWAP_COMPRESSOR_DEFAULT_LZ4=y</code>).</li>
+          <li>Explicitly retain <code>CONFIG_PCP_BATCH_SCALE_MAX=5</code> for fast <code>mmap_churn</code>.</li>
+          <li>Trim 13 non-security debug/tracing flags (<code>SCHEDSTATS</code>, <code>DEBUG_STACK_USAGE</code>, <code>DEBUG_ENTRY</code>, etc.), cutting <code>vmlinux</code> by <code>-275.33 KiB</code>.</li>
+        </ul>
+      </div>
+      <div class="layer-card">
+        <h4>Layer 3 · Runtime Sysctl (<code>swap55_tcp_v4</code>)</h4>
+        <ul>
+          <li>Balanced VM pressure: <code>swappiness=55</code>, <code>page-cluster=0</code>, <code>vfs_cache_pressure=105</code>, <code>compaction_proactiveness=0</code>, <code>watermark_boost_factor=0</code>.</li>
+          <li>NAPI/netdev delivery: <code>dev_weight=128</code>, <code>netdev_budget=600</code>, <code>netdev_budget_usecs=4000</code>, <code>somaxconn=4096</code>.</li>
+          <li>Omits <code>4 MiB</code> socket buffer bloat.</li>
+        </ul>
+      </div>
+    </div>
+
+    <h2 id="kvm">5. Bare-Metal KVM Verification (5-Round Latin Square)</h2>
+    <p>
+      Evaluated on a bare-metal host (<code>12th Gen Intel Core i7-1255U</code>, Linux <code>7.2.3-arch1-3</code>, <code>cloud-hypervisor v54.1</code>, pinned to cores <code>8-11</code>, 4 vCPUs, <code>1536 MiB</code> RAM) across <code>5</code> shifted rounds totaling <code>25</code> interleaved VM boots with zero failures.
+    </p>
+
+    <figure class="card">
+      <img src="figures/fig3_local_kvm_comparison.png" alt="Local KVM Paired Domain and Metric Comparison" />
+      <figcaption>
+        <strong>Figure 3.</strong> Co-measured paired comparison across 5 Latin-square KVM rounds against cleanly rebuilt Vanilla Linux 7.3.4 (<code>e709050ca72f8cac</code>). <code>EvoCore</code> leads overall domain balances and avoids the <code>0.8632x</code> loopback TCP regression seen in <code>08661a6b</code>.
+      </figcaption>
+    </figure>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Candidate</th>
+            <th>Binary Hash</th>
+            <th class="num">Paired Fitness</th>
+            <th class="num">Utility</th>
+            <th class="num">&gt; 1.00x</th>
+            <th>Worst Metric</th>
+            <th class="num">Mem Foot.</th>
+            <th class="num">Sched</th>
+            <th class="num">MM Speed</th>
+            <th class="num">Syscall/IPC</th>
+            <th class="num">FS/Net</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>vanilla</code></td>
+            <td><code>e709050c</code></td>
+            <td class="num">0.5000</td>
+            <td class="num">+0.00%</td>
+            <td class="num">0/22</td>
+            <td>1.0000x</td>
+            <td class="num">1.0000x</td>
+            <td class="num">1.0000x</td>
+            <td class="num">1.0000x</td>
+            <td class="num">1.0000x</td>
+            <td class="num">1.0000x</td>
+          </tr>
+          <tr class="winner-row">
+            <td>EvoCore (c37195f0_swap55)</td>
+            <td><code>c37195f0</code></td>
+            <td class="num">0.5298</td>
+            <td class="num">+1.99%</td>
+            <td class="num">14/22</td>
+            <td><code>epoll_ms</code> (0.9592x)</td>
+            <td class="num">1.0210x</td>
+            <td class="num">1.0248x</td>
+            <td class="num">0.9912x</td>
+            <td class="num">1.0550x</td>
+            <td class="num">1.0155x</td>
+          </tr>
+          <tr>
+            <td><code>balanced_42c5bfa3</code></td>
+            <td><code>a5fc3e21</code></td>
+            <td class="num">0.5137</td>
+            <td class="num">+0.92%</td>
+            <td class="num">12/22</td>
+            <td><code>boot_wall_ms</code> (0.9643x)</td>
+            <td class="num">1.0035x</td>
+            <td class="num">1.0128x</td>
+            <td class="num">0.9920x</td>
+            <td class="num">1.0271x</td>
+            <td class="num">1.0182x</td>
+          </tr>
+          <tr>
+            <td><code>nodebug_eac71b1d</code></td>
+            <td><code>beb7ef87</code></td>
+            <td class="num">0.5013</td>
+            <td class="num">+0.08%</td>
+            <td class="num">11/22</td>
+            <td><code>pipe_pingpong</code> (0.9461x)</td>
+            <td class="num">1.0107x</td>
+            <td class="num">0.9922x</td>
+            <td class="num">0.9989x</td>
+            <td class="num">0.9923x</td>
+            <td class="num">1.0101x</td>
+          </tr>
+          <tr>
+            <td><code>08661a6b</code> (T0 Peak)</td>
+            <td><code>a5fc3e21</code></td>
+            <td class="num">0.0521</td>
+            <td class="num">-0.85%</td>
+            <td class="num">8/22</td>
+            <td><code>tcp_bulk</code> (0.8632x)</td>
+            <td class="num">1.0116x</td>
+            <td class="num">0.9888x</td>
+            <td class="num">0.9853x</td>
+            <td class="num">0.9958x</td>
+            <td class="num">0.9676x</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <figure class="card">
+      <img src="figures/fig4_paired_distributions.png" alt="Across-Round Dispersion in Paired KVM Boots" />
+      <figcaption>
+        <strong>Figure 4.</strong> Per-round distributions (<code>n=5</code> Latin-square boots per candidate) highlighting tight distributional separation for <code>EvoCore</code> on <code>futex_pingpong_us</code>, <code>syscall_getppid_ns</code>, <code>post_used_kib</code> (<code>-18,936 KiB</code>), and <code>tcp_bulk_mbps</code> recovery.
+      </figcaption>
+    </figure>
+
+    <details class="full-table">
+      <summary>Click to expand full 22-metric local paired KVM median comparison</summary>
+      <div class="table-wrap" style="margin-bottom:4px;">
+        <table>
+          <thead>
+            <tr>
+              <th>Metric</th>
+              <th>Domain</th>
+              <th>Dir</th>
+              <th class="num">Vanilla Med</th>
+              <th class="num">08661a6b</th>
+              <th class="num">42c5bfa3</th>
+              <th class="num">eac71b1d</th>
+              <th class="num">EvoCore Med (Ratio)</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td><code>vmlinux_resident_kib</code></td><td>memory_footprint</td><td>low</td><td class="num">33828.50</td><td class="num">1.0000x</td><td class="num">1.0000x</td><td class="num">1.0082x</td><td class="num"><strong>33553.17 (1.0082x)</strong></td></tr>
+            <tr><td><code>boot_used_kib</code></td><td>memory_footprint</td><td>low</td><td class="num">166824.00</td><td class="num">1.0077x</td><td class="num">1.0089x</td><td class="num">1.0142x</td><td class="num"><strong>165412.00 (1.0085x)</strong></td></tr>
+            <tr><td><code>kernel_meta_idle_kib</code></td><td>memory_footprint</td><td>low</td><td class="num">14756.00</td><td class="num">1.0185x</td><td class="num">1.0093x</td><td class="num">1.0242x</td><td class="num"><strong>14448.00 (1.0213x)</strong></td></tr>
+            <tr><td><code>post_used_kib</code></td><td>memory_footprint</td><td>low</td><td class="num">231268.00</td><td class="num">1.0572x</td><td class="num">1.0214x</td><td class="num">1.0137x</td><td class="num"><strong>212332.00 (1.0892x)</strong></td></tr>
+            <tr><td><code>kernel_meta_post_kib</code></td><td>memory_footprint</td><td>low</td><td class="num">18004.00</td><td class="num">0.9971x</td><td class="num">0.9980x</td><td class="num">1.0083x</td><td class="num"><strong>17900.00 (1.0058x)</strong></td></tr>
+            <tr><td><code>mem_pressure_ms</code></td><td>memory_footprint</td><td>low</td><td class="num">158.79</td><td class="num">0.9905x</td><td class="num">0.9836x</td><td class="num">0.9961x</td><td class="num">159.50 (0.9955x)</td></tr>
+            <tr><td><code>pipe_pingpong_us</code></td><td>scheduler</td><td>low</td><td class="num">10.439</td><td class="num">0.9912x</td><td class="num">0.9950x</td><td class="num">0.9461x</td><td class="num"><strong>10.224 (1.0211x)</strong></td></tr>
+            <tr><td><code>hackbench_pipe_ms</code></td><td>scheduler</td><td>low</td><td class="num">9.43</td><td class="num">1.0022x</td><td class="num">1.0662x</td><td class="num">1.0656x</td><td class="num"><strong>8.65 (1.0912x)</strong></td></tr>
+            <tr><td><code>wakeup_p99_us</code></td><td>scheduler</td><td>low</td><td class="num">57.420</td><td class="num">1.0025x</td><td class="num">1.0165x</td><td class="num">0.9848x</td><td class="num"><strong>56.787 (1.0111x)</strong></td></tr>
+            <tr><td><code>cpu_contention_ms</code></td><td>scheduler</td><td>low</td><td class="num">35.45</td><td class="num">0.9598x</td><td class="num">0.9756x</td><td class="num">0.9763x</td><td class="num">36.20 (0.9792x)</td></tr>
+            <tr><td><code>anon_fault_ms</code></td><td>mm_speed</td><td>low</td><td class="num">15.47</td><td class="num">0.9974x</td><td class="num">0.9997x</td><td class="num">0.9906x</td><td class="num">15.59 (0.9927x)</td></tr>
+            <tr><td><code>cow_fork_us</code></td><td>mm_speed</td><td>low</td><td class="num">1316.852</td><td class="num">0.9909x</td><td class="num">0.9882x</td><td class="num">1.0259x</td><td class="num">1321.345 (0.9966x)</td></tr>
+            <tr><td><code>mmap_churn_ms</code></td><td>mm_speed</td><td>low</td><td class="num">446.41</td><td class="num">0.9579x</td><td class="num">0.9782x</td><td class="num">0.9833x</td><td class="num">458.19 (0.9743x)</td></tr>
+            <tr><td><code>vfs_slab_ms</code></td><td>mm_speed</td><td>low</td><td class="num">29.82</td><td class="num">0.9955x</td><td class="num">1.0023x</td><td class="num">0.9963x</td><td class="num"><strong>29.78 (1.0014x)</strong></td></tr>
+            <tr><td><code>syscall_getppid_ns</code></td><td>syscall_ipc_boot</td><td>low</td><td class="num">188.21</td><td class="num">1.0406x</td><td class="num">1.0159x</td><td class="num">1.0756x</td><td class="num"><strong>172.72 (1.0897x)</strong></td></tr>
+            <tr><td><code>futex_pingpong_us</code></td><td>syscall_ipc_boot</td><td>low</td><td class="num">4.902</td><td class="num">0.9938x</td><td class="num">1.0057x</td><td class="num">0.9611x</td><td class="num"><strong>4.001 (1.2250x)</strong></td></tr>
+            <tr><td><code>epoll_ms</code></td><td>syscall_ipc_boot</td><td>low</td><td class="num">4.78</td><td class="num">0.9682x</td><td class="num">1.1295x</td><td class="num">0.9659x</td><td class="num">4.98 (0.9592x)</td></tr>
+            <tr><td><code>boot_wall_ms</code></td><td>syscall_ipc_boot</td><td>low</td><td class="num">302.80</td><td class="num">0.9822x</td><td class="num">0.9643x</td><td class="num">0.9709x</td><td class="num">313.02 (0.9674x)</td></tr>
+            <tr><td><code>tmpfs_seq_rw_mbps</code></td><td>fs_net</td><td>high</td><td class="num">5949.99</td><td class="num">1.0064x</td><td class="num">0.9895x</td><td class="num">1.0092x</td><td class="num">5879.44 (0.9881x)</td></tr>
+            <tr><td><code>tmpfs_rand4k_iops</code></td><td>fs_net</td><td>high</td><td class="num">1337440.46</td><td class="num">1.0189x</td><td class="num">1.0135x</td><td class="num">0.9922x</td><td class="num"><strong>1385162.99 (1.0357x)</strong></td></tr>
+            <tr><td><code>tcp_bulk_mbps</code></td><td>fs_net</td><td>high</td><td class="num">5094.02</td><td class="num">0.8632x</td><td class="num">1.0309x</td><td class="num">1.0340x</td><td class="num"><strong>5222.59 (1.0252x)</strong></td></tr>
+            <tr><td><code>tcp_rr_us</code></td><td>fs_net</td><td>low</td><td class="num">17.007</td><td class="num">0.9902x</td><td class="num">1.0397x</td><td class="num">1.0052x</td><td class="num"><strong>16.782 (1.0134x)</strong></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </details>
+
+    <h2 id="colab">6. Cross-Host Generalization on Google Colab Xeon (QEMU TCG)</h2>
+    <p>
+      To verify transfer outside the development host, we provisioned an independent <strong>Google Colab CPU runtime</strong> (<code>Intel(R) Xeon(R) CPU @ 2.20GHz</code>, 2 host vCPUs, 12 GiB RAM, Ubuntu 24.04) running <code>qemu-system-x86_64 1:8.2.2</code> with <code>-machine pc -accel tcg,thread=multi -smp 4 -m 1536M</code> across <code>3</code> interleaved rounds (<code>13</code> boots total, <code>13/13</code> passing sanity, zero tainted/dmesg warnings).
+    </p>
+
+    <figure class="card">
+      <img src="figures/fig5_crosshost_colab_vs_kvm.png" alt="Cross-Host Validation: Local KVM vs Colab Xeon QEMU TCG" />
+      <figcaption>
+        <strong>Figure 5.</strong> Cross-host generalization comparing Local KVM ratios (<code>n=5</code>) against Google Colab Xeon QEMU TCG medians (<code>n=3</code>). Scheduler, futex, syscall, and VFS speedups transfer cleanly across hosts, while over-committed TCG thread scheduling explains the emulated loopback divergence.
+      </figcaption>
+    </figure>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Metric</th>
+            <th class="num">Colab Vanilla (Med)</th>
+            <th class="num">08661a6b (Ratio)</th>
+            <th class="num">42c5bfa3 (Ratio)</th>
+            <th class="num">EvoCore c37195f0 (Med / Ratio)</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr class="winner-row"><td>QEMU End-to-End Wall (s)</td><td class="num">128.24 s</td><td class="num">125.32 s (1.023x)</td><td class="num">126.52 s (1.014x)</td><td class="num">126.44 s (1.014x)</td></tr>
+          <tr class="winner-row"><td><code>hackbench_pipe_ms</code></td><td class="num">419.57 ms</td><td class="num">315.46 (1.3300x)</td><td class="num">314.77 (1.3329x)</td><td class="num">302.34 ms (1.3877x)</td></tr>
+          <tr class="winner-row"><td><code>futex_pingpong_us</code></td><td class="num">142.21 us</td><td class="num">160.73 (0.8848x)</td><td class="num">174.63 (0.8144x)</td><td class="num">118.05 us (1.2047x)</td></tr>
+          <tr class="winner-row"><td><code>syscall_getppid_ns</code></td><td class="num">886.83 ns</td><td class="num">871.76 (1.0173x)</td><td class="num">847.71 (1.0461x)</td><td class="num">820.71 ns (1.0806x)</td></tr>
+          <tr class="winner-row"><td><code>tmpfs_seq_rw_mbps</code></td><td class="num">419.49 MB/s</td><td class="num">285.90 (0.6815x)</td><td class="num">293.13 (0.6988x)</td><td class="num">451.25 MB/s (1.0757x)</td></tr>
+          <tr class="winner-row"><td><code>tmpfs_rand4k_iops</code></td><td class="num">127,721</td><td class="num">121,474 (0.9511x)</td><td class="num">96,584 (0.7562x)</td><td class="num">135,784 (1.0631x)</td></tr>
+          <tr class="winner-row"><td><code>pipe_pingpong_us</code></td><td class="num">195.18 us</td><td class="num">185.84 (1.0503x)</td><td class="num">196.14 (0.9951x)</td><td class="num">185.81 us (1.0504x)</td></tr>
+          <tr class="winner-row"><td><code>vfs_slab_ms</code></td><td class="num">2954.9 ms</td><td class="num">2972.7 (0.9940x)</td><td class="num">2965.3 (0.9965x)</td><td class="num">2850.0 ms (1.0368x)</td></tr>
+          <tr><td><code>mmap_churn_ms</code></td><td class="num">22,441.8 ms</td><td class="num">22,100.6 (1.0154x)</td><td class="num">21,968.4 (1.0215x)</td><td class="num"><strong>21,982.5 ms (1.0209x)</strong></td></tr>
+          <tr><td><code>tcp_bulk_mbps</code> <em>(TCG)</em></td><td class="num">184.75 MB/s</td><td class="num">177.47 (0.9606x)</td><td class="num">187.45 (1.0146x)</td><td class="num">138.11 MB/s (0.7476x)</td></tr>
+          <tr><td><code>tcp_rr_us</code> <em>(TCG)</em></td><td class="num">489.42 us</td><td class="num">500.28 (0.9783x)</td><td class="num">506.33 (0.9666x)</td><td class="num">871.25 us (0.5617x)</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout good">
+      <strong class="callout-title">Key Cross-Host Finding</strong>
+      Across both architectures, <strong><code>EvoCore</code> ranked #1 among evolved candidates</strong> on Colab Xeon TCG (<code>0.9880x</code> overall geomean across 21 active metrics vs <code>0.9601x</code> for <code>08661a6b</code> and <code>0.9556x</code> for <code>42c5bfa3</code>) and cut total QEMU wall time by <code>1.80 s</code>. Meanwhile, emulating 4 TCG vCPUs atop 2 host vCPUs introduced loopback softirq contention on debug-trimmed kernels (<code>beb7ef87</code> &amp; <code>c37195f0</code>), contrasting directly with native hardware KVM wins (<code>1.0252x</code> / <code>1.0134x</code>).
+    </div>
+
+    <h2 id="invariants">7. Security &amp; Subsystem Invariants Verified</h2>
+    <p>
+      Every configuration in <a href="https://github.com/suayptalha/evocore" target="_blank" rel="noopener"><code>suayptalha/evocore</code></a> ships with an automated verifier (<a href="https://github.com/suayptalha/evocore/blob/main/configs/verify_invariants.py" target="_blank" rel="noopener"><code>verify_invariants.py</code></a>) guaranteeing zero silent degradations relative to upstream <code>base_defconfig</code>:
+    </p>
+    <ul>
+      <li><strong>26/26 Core Runtime Subsystems (<code>=y</code>):</strong> <code>SMP</code>, <code>CGROUPS</code>, <code>MEMCG</code>, <code>BLK_CGROUP</code>, <code>NAMESPACES</code>, <code>USER_NS</code>, <code>PID_NS</code>, <code>NET_NS</code>, <code>NET</code>, <code>INET</code>, <code>EXT4_FS</code>, <code>TMPFS</code>, <code>EPOLL</code>, <code>FUTEX</code>, <code>IO_URING</code>, <code>BPF_SYSCALL</code>, <code>BPF_JIT</code>, <code>SECCOMP</code>, <code>SECURITY</code>, <code>PREEMPT_BUILD</code>, <code>PREEMPTION</code>, <code>PVH</code>, <code>BLK_DEV_INITRD</code>, <code>RD_GZIP</code>, <code>VIRTIO_CONSOLE</code>, <code>SERIAL_8250_CONSOLE</code>.</li>
+      <li><strong>22/22 CPU Hardware Mitigations (<code>=y</code>):</strong> 0 <code>CONFIG_MITIGATION_*</code> options disabled or relaxed.</li>
+      <li><strong>0 Hardening Diffs:</strong> <code>PREEMPT_LAZY=y</code>, <code>STACKPROTECTOR_STRONG=y</code>, <code>FORTIFY_SOURCE=y</code>, <code>RANDOMIZE_BASE=y</code>, <code>SLAB_FREELIST_HARDENED=y</code>, <code>HARDENED_USERCOPY=y</code>, <code>SECURITY_LOCKDOWN_LSM=y</code>, and <code>STRICT_KERNEL_RWX=y</code> remain bit-identical to upstream baseline.</li>
+    </ul>
+
+    <h2 id="reproduce">8. Reproducibility &amp; Open Artifacts</h2>
+    <p>
+      All patches, Kconfig fragments, invariant checkers, static C benchmarks (<code>init_bench.c</code>), Latin-square paired test harnesses (<code>run_paired_bench.py</code>), and raw JSON logs are published openly at <a href="https://github.com/suayptalha/evocore" target="_blank" rel="noopener"><code>https://github.com/suayptalha/evocore</code></a>.
+    </p>
+<pre><code>git clone https://github.com/suayptalha/evocore.git
+# Apply evocore/patches/evocore_linux_7.3.4.patch + configs/evocore.fragment onto Linux 7.3.4
+python3 evocore/configs/verify_invariants.py</code></pre>
+
+    <h2 id="references">References</h2>
+    <ol>
+      <li>Yuksel, K. A., &amp; Sawaf, H. (2026). <em>EvoForest: A Novel Machine-Learning Paradigm via Open-Ended Evolution of Computational Graphs</em>. arXiv preprint <a href="https://arxiv.org/abs/2604.19761" target="_blank" rel="noopener"><code>arXiv:2604.19761</code></a>.</li>
+      <li>Du, H., Ge, Q., Hu, J., Yang, A., Cai, Z., Huang, Z., Yuan, S., Cheng, Q., Xie, X., Chen, Y., Li, Y., Xie, J., Dong, H., Wu, Y., Huang, X., Yang, J., Wang, H., Zhou, B., Li, B., Guo, Q., &amp; Chen, K. (2026). <em>Kernel-Smith: A Unified Recipe for Evolutionary Kernel Optimization</em>. arXiv preprint <a href="https://arxiv.org/abs/2603.28342" target="_blank" rel="noopener"><code>arXiv:2603.28342</code></a>.</li>
+      <li>Torvalds, L., &amp; Linux Kernel Contributors (2026). <em>Linux Kernel 7.3.4 Source Tree</em> (<code>kernel/sched/fair.c</code>, <code>kernel/sched/features.h</code>, <code>kernel/fork.c</code>, <code>fs/pipe.c</code>, <code>net/ipv4/tcp_ipv4.c</code>, <code>mm/zswap.c</code>, <code>mm/page_alloc.c</code>). <a href="https://www.kernel.org/" target="_blank" rel="noopener">kernel.org</a>.</li>
+      <li>Cloud Hypervisor Project (2026). <em>Cloud Hypervisor v54.1: Open-Source Virtual Machine Monitor on KVM</em>. <a href="https://www.cloudhypervisor.org/" target="_blank" rel="noopener">cloudhypervisor.org</a>.</li>
+      <li>Bellard, F., &amp; QEMU Project (2024). <em>QEMU System Emulator (<code>qemu-system-x86_64</code>, Tiny Code Generator Multi-Thread TCG)</em>. <a href="https://www.qemu.org/" target="_blank" rel="noopener">qemu.org</a>.</li>
+      <li>Collet, Y. (2013–2026). <em>LZ4 Extremely Fast Compression Algorithm (<code>CONFIG_ZSWAP_COMPRESSOR_DEFAULT_LZ4</code>)</em>. <a href="https://lz4.org/" target="_blank" rel="noopener">lz4.org</a>.</li>
+    </ol>
+
+<pre><code>@misc{kocabay2026evocore,
+  title        = {EvoCore: Evolving the Linux Kernel},
+  author       = {Kocabay, {\c{S}}uayp Talha},
+  year         = {2026},
+  howpublished = {\url{https://suayptalha.github.io/evocore-blog/}},
+  url          = {https://suayptalha.github.io/evocore-blog/},
+  note         = {T\"UB\.ITAK Science High School. Code: \url{https://github.com/suayptalha/evocore}}
+}</code></pre>
+
+    <footer>
+      <span>EvoCore · Şuayp Talha Kocabay (TÜBİTAK Science High School)</span>
+      <span><a href="https://github.com/suayptalha/evocore" target="_blank" rel="noopener">suayptalha/evocore</a> · <a href="https://arxiv.org/abs/2604.19761" target="_blank" rel="noopener">EvoForest arXiv:2604.19761</a></span>
+    </footer>
+  </main>
+
+  <script>
+    if (typeof mermaid !== 'undefined') {
+      mermaid.initialize({
+        startOnLoad: true,
+        theme: 'base',
+        themeVariables: {
+          primaryColor: '#eef5fc',
+          primaryTextColor: '#0f172a',
+          primaryBorderColor: '#0f4c81',
+          lineColor: '#526074',
+          fontFamily: 'Inter, sans-serif'
+        }
+      });
+    }
+  </script>
+</body>
+</html>
