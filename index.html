@@ -490,6 +490,130 @@
       justify-content: space-between;
       gap: 12px;
     }
+
+    p code, li code, .authors-block a, #references a {
+      overflow-wrap: anywhere;
+    }
+
+    @media (max-width: 860px) {
+      .topbar {
+        position: static;
+      }
+
+      .topbar-inner {
+        flex-direction: column;
+        align-items: flex-start;
+        padding: 8px 16px;
+        gap: 6px;
+      }
+
+      .nav-links {
+        width: 100%;
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: none;
+        gap: 14px;
+        padding: 0 20px 2px 0;
+        -webkit-mask-image: linear-gradient(to right, #000 0, #000 92%, transparent 100%);
+        mask-image: linear-gradient(to right, #000 0, #000 92%, transparent 100%);
+      }
+
+      .nav-links::-webkit-scrollbar {
+        display: none;
+      }
+
+      .nav-links a {
+        white-space: nowrap;
+        flex-shrink: 0;
+        font-size: 0.84rem;
+      }
+
+      h2, h3 {
+        scroll-margin-top: 16px;
+      }
+    }
+
+    @media (max-width: 520px) {
+      body {
+        font-size: 15.5px;
+        line-height: 1.65;
+      }
+
+      main {
+        padding: 16px 16px 56px;
+      }
+
+      .banner-fig {
+        border-radius: 10px;
+        margin-bottom: 20px;
+      }
+
+      .paper-header {
+        margin-bottom: 20px;
+      }
+
+      .eyebrow {
+        font-size: 0.72rem;
+        border-radius: 10px;
+        margin-bottom: 10px;
+      }
+
+      h1.paper-title {
+        font-size: 1.85rem;
+      }
+
+      .subtitle {
+        font-size: 0.98rem;
+      }
+
+      .pill-link {
+        font-size: 0.82rem;
+        padding: 6px 12px;
+      }
+
+      .kpi-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 10px;
+        margin: 20px 0 24px;
+      }
+
+      .kpi-card {
+        padding: 12px;
+      }
+
+      .kpi-val {
+        font-size: 1.18rem;
+      }
+
+      .kpi-label {
+        font-size: 0.78rem;
+      }
+
+      .abstract-box {
+        padding: 16px;
+        margin-bottom: 24px;
+      }
+
+      h2 {
+        font-size: 1.42rem;
+        margin: 32px 0 12px;
+      }
+
+      figure.card {
+        padding: 10px;
+        margin: 18px 0 22px;
+      }
+
+      pre {
+        padding: 12px 14px;
+        font-size: 0.78rem;
+      }
+
+      .callout {
+        padding: 14px 16px;
+      }
+    }
   </style>
 </head>
 <body>
